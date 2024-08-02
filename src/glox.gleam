@@ -27,7 +27,7 @@ fn run_prompt() {
   }
 }
 
-fn run(source: String) -> Result(Nil, CompileError) {
+pub fn run(source: String) -> Result(Nil, CompileError) {
   let my_scanner = Scanner(source)
 
   case scan_tokens(my_scanner) {
