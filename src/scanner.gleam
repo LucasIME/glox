@@ -1,9 +1,11 @@
 import gleam/dict.{type Dict}
+import gleam/float
+import gleam/int
 import gleam/list
-import gleam/option.{None}
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
-import token.{type Token, Token}
+import token.{type Token, type TokenLiteral, Token}
 import token_type.{type TokenType, Eof}
 
 pub type Scanner {
@@ -34,15 +36,15 @@ fn keywords() -> Dict(String, TokenType) {
   ])
 }
 
-pub fn scan_tokens(scanner: Scanner) -> Result(List(Token(value)), CompileError) {
+pub fn scan_tokens(scanner: Scanner) -> Result(List(Token), CompileError) {
   scan_tokens_helper(scanner.source, [], 0)
 }
 
 fn scan_tokens_helper(
   source: String,
-  out: List(Token(value)),
+  out: List(Token),
   line: Int,
-) -> Result(List(Token(value)), CompileError) {
+) -> Result(List(Token), CompileError) {
   case source {
     "" -> {
       let eof = Token(Eof, "", None, line)
@@ -52,61 +54,61 @@ fn scan_tokens_helper(
     "(" <> rest ->
       scan_tokens_helper(
         rest,
-        add_first_token(source, token_type.LeftParen, out, line),
+        add_first_none_token(source, token_type.LeftParen, out, line),
         line,
       )
     ")" <> rest ->
       scan_tokens_helper(
         rest,
-        add_first_token(source, token_type.RightParen, out, line),
+        add_first_none_token(source, token_type.RightParen, out, line),
         line,
       )
     "{" <> rest ->
       scan_tokens_helper(
         rest,
-        add_first_token(source, token_type.LeftBrace, out, line),
+        add_first_none_token(source, token_type.LeftBrace, out, line),
         line,
       )
     "}" <> rest ->
       scan_tokens_helper(
         rest,
-        add_first_token(source, token_type.RightBrace, out, line),
+        add_first_none_token(source, token_type.RightBrace, out, line),
         line,
       )
     "," <> rest ->
       scan_tokens_helper(
         rest,
-        add_first_token(source, token_type.Comma, out, line),
+        add_first_none_token(source, token_type.Comma, out, line),
         line,
       )
     "." <> rest ->
       scan_tokens_helper(
         rest,
-        add_first_token(source, token_type.Dot, out, line),
+        add_first_none_token(source, token_type.Dot, out, line),
         line,
       )
     "-" <> rest ->
       scan_tokens_helper(
         rest,
-        add_first_token(source, token_type.Minus, out, line),
+        add_first_none_token(source, token_type.Minus, out, line),
         line,
       )
     "+" <> rest ->
       scan_tokens_helper(
         rest,
-        add_first_token(source, token_type.Plus, out, line),
+        add_first_none_token(source, token_type.Plus, out, line),
         line,
       )
     ";" <> rest ->
       scan_tokens_helper(
         rest,
-        add_first_token(source, token_type.Semicolon, out, line),
+        add_first_none_token(source, token_type.Semicolon, out, line),
         line,
       )
     "*" <> rest ->
       scan_tokens_helper(
         rest,
-        add_first_token(source, token_type.Star, out, line),
+        add_first_none_token(source, token_type.Star, out, line),
         line,
       )
     "!" <> rest -> {
@@ -114,13 +116,13 @@ fn scan_tokens_helper(
         "=" <> rest2 ->
           scan_tokens_helper(
             rest2,
-            add_double_token(source, token_type.BangEqual, out, line),
+            add_double_none_token(source, token_type.BangEqual, out, line),
             line,
           )
         rest2 ->
           scan_tokens_helper(
             rest2,
-            add_double_token(source, token_type.Bang, out, line),
+            add_double_none_token(source, token_type.Bang, out, line),
             line,
           )
       }
@@ -130,13 +132,13 @@ fn scan_tokens_helper(
         "=" <> rest2 ->
           scan_tokens_helper(
             rest2,
-            add_double_token(source, token_type.EqualEqual, out, line),
+            add_double_none_token(source, token_type.EqualEqual, out, line),
             line,
           )
         rest2 ->
           scan_tokens_helper(
             rest2,
-            add_double_token(source, token_type.Equal, out, line),
+            add_double_none_token(source, token_type.Equal, out, line),
             line,
           )
       }
@@ -146,13 +148,13 @@ fn scan_tokens_helper(
         "=" <> rest2 ->
           scan_tokens_helper(
             rest2,
-            add_double_token(source, token_type.LessEqual, out, line),
+            add_double_none_token(source, token_type.LessEqual, out, line),
             line,
           )
         rest2 ->
           scan_tokens_helper(
             rest2,
-            add_double_token(source, token_type.Less, out, line),
+            add_double_none_token(source, token_type.Less, out, line),
             line,
           )
       }
@@ -162,13 +164,13 @@ fn scan_tokens_helper(
         "=" <> rest2 ->
           scan_tokens_helper(
             rest2,
-            add_double_token(source, token_type.GreaterEqual, out, line),
+            add_double_none_token(source, token_type.GreaterEqual, out, line),
             line,
           )
         rest2 ->
           scan_tokens_helper(
             rest2,
-            add_double_token(source, token_type.Greater, out, line),
+            add_double_none_token(source, token_type.Greater, out, line),
             line,
           )
       }
@@ -179,7 +181,7 @@ fn scan_tokens_helper(
         rest2 ->
           scan_tokens_helper(
             rest2,
-            add_double_token(source, token_type.Slash, out, line),
+            add_double_none_token(source, token_type.Slash, out, line),
             line,
           )
       }
@@ -192,7 +194,13 @@ fn scan_tokens_helper(
         Ok(CaptureStringResult(matched, remaining)) ->
           scan_tokens_helper(
             remaining,
-            add_token(matched, token_type.String, out, line),
+            add_token(
+              matched,
+              token_type.String,
+              Some(token.StringLiteral(matched)),
+              out,
+              line,
+            ),
             line,
           )
         Error(e) -> Error(CompileError(e, line))
@@ -202,12 +210,28 @@ fn scan_tokens_helper(
       case is_digit(c) {
         True -> {
           case capture_digits(c) {
-            Ok(CaptureStringResult(matched, remaining)) ->
-              scan_tokens_helper(
-                remaining,
-                add_token(matched, token_type.Number, out, line),
-                line,
-              )
+            Ok(CaptureStringResult(matched, remaining)) -> {
+              let maybe_parsed_float = parse_float(matched)
+              case maybe_parsed_float {
+                Ok(f) ->
+                  scan_tokens_helper(
+                    remaining,
+                    add_token(
+                      matched,
+                      token_type.Number,
+                      Some(token.NumberLiteral(f)),
+                      out,
+                      line,
+                    ),
+                    line,
+                  )
+                Error(_) ->
+                  Error(CompileError(
+                    { "Invalid number literal" <> matched },
+                    line,
+                  ))
+              }
+            }
             Error(e) -> Error(CompileError(e, line))
           }
         }
@@ -224,6 +248,7 @@ fn scan_tokens_helper(
                       keywords()
                         |> dict.get(matched)
                         |> result.unwrap(token_type.Identifier),
+                      Some(token.StringLiteral(matched)),
                       out,
                       line,
                     ),
@@ -239,33 +264,60 @@ fn scan_tokens_helper(
   }
 }
 
+fn parse_float(source: String) -> Result(Float, Nil) {
+  source
+  |> float.parse()
+  |> result.or(int.parse(source) |> result.map(int.to_float))
+}
+
+fn add_first_none_token(
+  source: String,
+  token_type: TokenType,
+  out: List(Token),
+  line: Int,
+) {
+  add_first_token(source, token_type, None, out, line)
+}
+
 fn add_first_token(
   source: String,
   token_type: TokenType,
-  out: List(Token(value)),
+  token_literal: Option(TokenLiteral),
+  out: List(Token),
   line: Int,
 ) {
   let assert Ok(text) = string.first(source)
-  list.append([Token(token_type, text, None, line)], out)
+  list.append([Token(token_type, text, token_literal, line)], out)
+}
+
+fn add_double_none_token(
+  source: String,
+  token_type: TokenType,
+  out: List(Token),
+  line: Int,
+) {
+  add_double_token(source, token_type, None, out, line)
 }
 
 fn add_double_token(
   source: String,
   token_type: TokenType,
-  out: List(Token(value)),
+  token_literal: Option(TokenLiteral),
+  out: List(Token),
   line: Int,
 ) {
   let text = string.slice(source, 0, 2)
-  list.append([Token(token_type, text, None, line)], out)
+  list.append([Token(token_type, text, token_literal, line)], out)
 }
 
 fn add_token(
   source: String,
   token_type: TokenType,
-  out: List(Token(value)),
+  token_literal: Option(TokenLiteral),
+  out: List(Token),
   line: Int,
 ) {
-  list.append([Token(token_type, source, None, line)], out)
+  list.append([Token(token_type, source, token_literal, line)], out)
 }
 
 fn skip_to_next_line(source: String) -> String {
